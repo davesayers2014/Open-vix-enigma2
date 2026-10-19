@@ -1347,6 +1347,44 @@ void eDVBCAService::sendCAPMT()
 	}
 }
 
+/*
+ * Set ca_pmt_cmd_id in the program info AND in every ES info loop entry.
+ * EN 50221 puts a ca_pmt_cmd_id at the start of each non-empty ES_info,
+ * and OSCam (boxtype dreambox) takes the value from the ES loop, overriding
+ * the program-level one. Patching only the program-level byte means
+ * CMD_NOT_SELECTED is read as CMD_OK_DESCRAMBLING for any service with
+ * ES-level CA descriptors, so the softcam never stops (stale ecm.info).
+ */
+void eDVBCAService::setCAPMTCmdId(int lenbytes, int cmd_id)
+{
+	int obj_len = 0;
+	if (m_capmt[8] & 0x80)
+		for (int i = 0; i < lenbytes; ++i)
+			obj_len = (obj_len << 8) | m_capmt[9 + i];
+	else
+		obj_len = m_capmt[8];
+
+	int pos = 9 + lenbytes;          // ca_pmt_list_management
+	int end = pos + obj_len;         // end of the CA PMT object
+	if (end > (int)sizeof(m_capmt)) end = sizeof(m_capmt);
+	if (pos + 6 > end) return;
+
+	int prog_info_len = ((m_capmt[pos + 4] & 0x0F) << 8) | m_capmt[pos + 5];
+	pos += 6;                        // skip list_mgmt, program_number, version, program_info_length
+	if (prog_info_len > 0)
+		m_capmt[pos] = (unsigned char)cmd_id;
+	pos += prog_info_len;
+
+	while (pos + 5 <= end)           // stream_type(1) + pid(2) + es_info_length(2)
+	{
+		int es_info_len = ((m_capmt[pos + 3] & 0x0F) << 8) | m_capmt[pos + 4];
+		pos += 5;
+		if (es_info_len > 0 && pos < end)
+			m_capmt[pos] = (unsigned char)cmd_id;
+		pos += es_info_len;
+	}
+}
+
 int eDVBCAService::writeCAPMTObject(eSocket *socket, int list_management, int cmd_id)
 {
 	int wp = 0;
@@ -1367,8 +1405,7 @@ int eDVBCAService::writeCAPMTObject(eSocket *socket, int list_management, int cm
 		wp += 4;
 		if (list_management >= 0) m_capmt[9] = (unsigned char)list_management;
 	}
-	// cmd_id is 6 bytes after list_management: list_mgmt(1) + program_number(2) + version(1) + prog_info_len(2)
-	if (cmd_id >= 0) m_capmt[9 + lenbytes + 6] = (unsigned char)cmd_id;
+	if (cmd_id >= 0) setCAPMTCmdId(lenbytes, cmd_id);
 
 	return socket->writeBlock((const char*)(m_capmt + 5), wp); // skip extra header
 }
@@ -1393,8 +1430,7 @@ int eDVBCAService::writeCAPMTObject(ePMTClient *client, int list_management, int
 		wp += 4;
 		if (list_management >= 0) m_capmt[9] = (unsigned char)list_management;
 	}
-	// cmd_id is 6 bytes after list_management: list_mgmt(1) + program_number(2) + version(1) + prog_info_len(2)
-	if (cmd_id >= 0) m_capmt[9 + lenbytes + 6] = (unsigned char)cmd_id;
+	if (cmd_id >= 0) setCAPMTCmdId(lenbytes, cmd_id);
 
 	return client->writeCAPMTObject((const char*)m_capmt, wp);
 }

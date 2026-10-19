@@ -141,6 +141,7 @@ public:
 	uint32_t getServiceTypeMask() const;
 	void resetBuildHash() { m_prev_build_hash = 0; m_crc32 = 0; }
 	void sendCAPMT();
+	void setCAPMTCmdId(int lenbytes, int cmd_id);
 	int writeCAPMTObject(eSocket *socket, int list_management = -1, int cmd_id = -1);
 	int writeCAPMTObject(ePMTClient *client, int list_management = -1, int cmd_id = -1);
 	int buildCAPMT(eTable<ProgramMapSection> *ptr);

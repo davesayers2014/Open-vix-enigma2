@@ -27,7 +27,7 @@ class CryptoInfo(Converter, Poll):
 		if not info:
 			return ""
 
-		is_crypted = bool(info.getInfo(iServiceInformation.sIsCrypted))
+		is_crypted = info.getInfo(iServiceInformation.sIsCrypted) == 1  # resNA (-1) from IPTV/media services must not count as crypted
 
 		if self.type == "VerboseInfo":
 			return self.ecmdata.getEcmData()[0] if is_crypted else ""
