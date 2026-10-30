@@ -4,6 +4,7 @@ from enigma import eTimer
 
 from Components.ActionMap import HelpableActionMap
 from Components.config import config, configfile
+from Components.EpgBouquetTabList import EpgBouquetTabList
 from Components.EpgListGrid import EPGListGrid, MAX_TIMELINES, TimelineText
 from Components.Label import Label
 from Components.Pixmap import Pixmap
@@ -30,6 +31,10 @@ class EPGSelectionGrid(EPGSelectionBase, EPGBouquetSelection, EPGServiceNumberSe
 			self.skinName = ["GridEPGPIG", "GraphicalEPGPIG"]
 		self.closeRecursive = False
 		EPGBouquetSelection.__init__(self, graphic)
+
+		# Optional bouquet tab strip, only shown if the skin defines a "guidebouquetlist" widget.
+		self["guidebouquetlist"] = EpgBouquetTabList()
+		self.onLayoutFinish.append(self.refreshBouquetTabs)
 
 		self["timeline_text"] = TimelineText(self.epgConfig, graphic)
 		self["Event"] = Event()
@@ -170,12 +175,17 @@ class EPGSelectionGrid(EPGSelectionBase, EPGBouquetSelection, EPGServiceNumberSe
 	def rightPressed(self):
 		self.updEvent(+1)
 
+	def refreshBouquetTabs(self):
+		if self.bouquets:
+			self["guidebouquetlist"].setBouquets([bouquet[0] for bouquet in self.bouquets], self.selectedBouquetIndex)
+
 	def bouquetChanged(self):
 		self.setTitle(self.getCurrentBouquetName())
 		list = self["list"]
 		list.fillEPG(self.services)
 		self.moveTimeLines(True)
 		list.setCurrentIndex(0)
+		self["guidebouquetlist"].setSelected(self.selectedBouquetIndex)
 
 	def forward24Hours(self):
 		self.updEvent(+24)
